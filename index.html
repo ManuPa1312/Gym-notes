@@ -382,4 +382,692 @@ function renderBlockCard(b,idx,dayId){
   const lbl=BLABEL[b.type]||'';
   const isExp=S.expandedBlock===b.id;
 
-  // Summary
+  // Summary line
+  let summary='';
+  if(b.type==='single'){
+    const nm=S.defs.find(d=>d.id===b.exercise?.defId)?.name||'Esercizio';
+    const ll=lastLog(b.exercise);
+    const bw=bestW(b.exercise);
+    summary=`<div class="f1"><div class="bname">${esc(nm)}</div>
+      <div class="bsub">${ll?`Ultima: ${ll.sets?.map(s=>s.weight+'kg').join('/')||'—'}`:'Nessun log'}${bw?` · Max: ${bw}kg`:''}</div></div>`;
+  } else if(b.type==='emom'){
+    summary=`<div class="bname">${b.duration}min EMOM · ${b.exercises?.length||0} esercizi</div>`;
+  } else if(b.type==='amrap'){
+    summary=`<div class="bname">${b.duration}min AMRAP · ${b.exercises?.length||0} esercizi</div>`;
+  } else if(b.type==='circuit'){
+    summary=`<div class="bname">Circuito ${b.rounds||3}x · ${b.exercises?.length||0} esercizi</div>`;
+  } else {
+    const names=(b.exercises||[]).map(e=>S.defs.find(d=>d.id===e.defId)?.name||'—').join(' + ');
+    summary=`<div class="bname">${esc(names)||'Esercizi'}</div>`;
+  }
+
+  let body='';
+  if(isExp){
+    body=`<div class="bcard-body">${renderBlockEditor(b,dayId)}`;
+    // Log button for single
+    if(b.type==='single'&&b.exercise?.defId){
+      body+=`<button class="btn-add mt8" style="border-color:rgba(74,222,128,.3);color:var(--g)" data-a="go-log" data-bid="${b.id}" data-did="${dayId}">📈 Progressione settimana per settimana</button>`;
+    }
+    body+=`</div>`;
+  }
+
+  return`
+  <div class="bcard" style="border-top:2px solid ${col}">
+    <div class="bcard-hdr" data-a="toggle-block" data-bid="${b.id}">
+      <span class="bnum" style="background:${col}">${idx+1}</span>
+      ${lbl?`<span class="btype-tag" style="color:${col};background:${col}22;font-size:9px;padding:2px 5px;border-radius:4px;font-weight:700;letter-spacing:.5px">${lbl}</span>`:''}
+      ${summary}
+      <div class="row" style="gap:3px;margin-left:6px" onclick="event.stopPropagation()">
+        <button class="btn-del" data-a="del-block" data-bid="${b.id}" data-did="${dayId}">🗑️</button>
+        <span style="color:var(--tx4);font-size:14px">${isExp?'▾':'▸'}</span>
+      </div>
+    </div>
+    ${body}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BLOCK EDITOR (inside block card)
+// ═══════════════════════════════════════════════════════════════
+function renderBlockEditor(b,dayId){
+  if(b.type==='single')   return renderExEditor(b.exercise,`sx-${b.id}`);
+  if(b.type==='superset'||b.type==='triset') return renderMultiEx(b,dayId);
+  if(b.type==='emom')     return renderEmom(b,dayId);
+  if(b.type==='amrap')    return renderAmrap(b,dayId);
+  if(b.type==='circuit')  return renderCircuit(b,dayId);
+  return'';
+}
+
+function renderExEditor(entry,prefix){
+  const defOpts=MUSCLES.map(g=>{
+    const gr=S.defs.filter(d=>d.muscle===g);
+    if(!gr.length)return'';
+    return`<optgroup label="${g}">${gr.map(d=>`<option value="${d.id}" ${entry.defId===d.id?'selected':''}>${esc(d.name)}</option>`).join('')}</optgroup>`;
+  }).join('');
+
+  const rows=entry.sets.map((s,si)=>`<tr>
+    <td class="sn">${si+1}</td>
+    <td><input type="number" data-f="sw" data-p="${prefix}" data-sid="${s.id}" value="${s.weight}" placeholder="0"/></td>
+    <td><input type="number" data-f="sr" data-p="${prefix}" data-sid="${s.id}" value="${s.reps}" placeholder="8"/></td>
+    <td><input type="number" data-f="srest" data-p="${prefix}" data-sid="${s.id}" value="${s.rest}" placeholder="60"/></td>
+    <td style="text-align:center"><button class="btn-del" data-a="del-set" data-p="${prefix}" data-sid="${s.id}" style="padding:2px">×</button></td>
+  </tr>`).join('');
+
+  return`
+  <div class="fg">
+    <label class="lbl">Esercizio</label>
+    <select data-f="edef" data-p="${prefix}"><option value="">— Seleziona —</option>${defOpts}</select>
+  </div>
+  <div class="rsb mb8"><label class="lbl" style="margin:0">Serie</label>
+    <button class="btn-mini" data-a="add-set" data-p="${prefix}">＋ Serie</button>
+  </div>
+  <table class="stbl"><thead><tr><th>#</th><th>Kg</th><th>Rip.</th><th>Rec(s)</th><th></th></tr></thead>
+  <tbody>${rows}</tbody></table>`;
+}
+
+function renderMultiEx(b,dayId){
+  const col=BCOLOR[b.type];
+  return b.exercises.map((ex,ei)=>`
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:${col};margin-bottom:6px">ESERCIZIO ${ei+1}</div>
+      ${renderExEditor(ex,`mx-${b.id}-${ei}`)}
+    </div>`).join('')
+  +`<div class="fg"><label class="lbl">Recupero tra blocchi (sec)</label>
+    <input type="number" style="max-width:90px" data-f="brest" data-bid="${b.id}" value="${b.rest||90}" placeholder="90"/></div>`;
+}
+
+function renderEmom(b,dayId){
+  const exRows=b.exercises.map((e,ei)=>`
+    <div class="emom-row">
+      <input placeholder="Esercizio (es. Burpees)" data-f="emom-text" data-bid="${b.id}" data-ei="${ei}" value="${esc(e.text||'')}"/>
+      <input type="number" style="max-width:70px" placeholder="Rip." data-f="emom-reps" data-bid="${b.id}" data-ei="${ei}" value="${e.reps||''}"/>
+      <button class="btn-del" data-a="del-emom-ex" data-bid="${b.id}" data-ei="${ei}">×</button>
+    </div>`).join('');
+  return`
+  <div class="emom-box">
+    <div class="row mb8">
+      <div class="fg f1" style="margin:0"><label class="lbl">Durata (min)</label>
+        <input type="number" data-f="emom-dur" data-bid="${b.id}" value="${b.duration||20}" placeholder="20"/></div>
+      <div class="fg f1" style="margin:0"><label class="lbl">Intervallo (min)</label>
+        <input type="number" data-f="emom-int" data-bid="${b.id}" value="${b.interval||1}" placeholder="1"/></div>
+    </div>
+    <label class="lbl">Esercizi ogni minuto</label>
+    ${exRows}
+    <button class="btn-mini mt8" data-a="add-emom-ex" data-bid="${b.id}">＋ Esercizio</button>
+  </div>
+  <div class="fg"><label class="lbl">Note</label>
+    <textarea data-f="bnote" data-bid="${b.id}" placeholder="Note aggiuntive...">${esc(b.note||'')}</textarea></div>`;
+}
+
+function renderAmrap(b,dayId){
+  const exRows=b.exercises.map((e,ei)=>`
+    <div class="emom-row">
+      <input placeholder="Esercizio" data-f="amrap-text" data-bid="${b.id}" data-ei="${ei}" value="${esc(e.text||'')}"/>
+      <input type="number" style="max-width:70px" placeholder="Rip." data-f="amrap-reps" data-bid="${b.id}" data-ei="${ei}" value="${e.reps||''}"/>
+      <button class="btn-del" data-a="del-amrap-ex" data-bid="${b.id}" data-ei="${ei}">×</button>
+    </div>`).join('');
+  return`
+  <div class="emom-box">
+    <div class="fg"><label class="lbl">Durata (min)</label>
+      <input type="number" data-f="amrap-dur" data-bid="${b.id}" value="${b.duration||10}" placeholder="10"/></div>
+    <label class="lbl">Esercizi</label>
+    ${exRows}
+    <button class="btn-mini mt8" data-a="add-amrap-ex" data-bid="${b.id}">＋ Esercizio</button>
+  </div>
+  <div class="fg"><label class="lbl">Note</label>
+    <textarea data-f="bnote" data-bid="${b.id}" placeholder="Note...">${esc(b.note||'')}</textarea></div>`;
+}
+
+function renderCircuit(b,dayId){
+  return`
+  <div class="emom-box">
+    <div class="row mb8">
+      <div class="fg f1" style="margin:0"><label class="lbl">Round</label>
+        <input type="number" data-f="circ-rounds" data-bid="${b.id}" value="${b.rounds||3}" placeholder="3"/></div>
+      <div class="fg f1" style="margin:0"><label class="lbl">Recupero (sec)</label>
+        <input type="number" data-f="circ-rest" data-bid="${b.id}" value="${b.rest||30}" placeholder="30"/></div>
+    </div>
+    <label class="lbl">Esercizi nel circuito</label>
+    ${b.exercises.map((ex,ei)=>`
+      <div style="margin-bottom:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--t);margin-bottom:5px">STAZIONE ${ei+1}
+          <button class="btn-del" data-a="del-circ-ex" data-bid="${b.id}" data-ei="${ei}" style="margin-left:8px">×</button>
+        </div>
+        ${renderExEditor(ex,`cx-${b.id}-${ei}`)}
+      </div>`).join('')}
+    <button class="btn-mini mt8" data-a="add-circ-ex" data-bid="${b.id}">＋ Stazione</button>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BLOCK LOG / PROGRESSIONE
+// ═══════════════════════════════════════════════════════════════
+function renderBlockLog(){
+  const m=S.activeMonth;
+  if(!m) return'';
+  const day=m.days.find(d=>d.id===S.activeDayId);
+  if(!day) return'';
+  const b=day.blocks.find(x=>x.id===S.activeBlockId);
+  if(!b||b.type!=='single') return'';
+  const ex=b.exercise;
+  const defName=S.defs.find(d=>d.id===ex.defId)?.name||'Esercizio';
+  const weeks=parseInt(m.weeks)||4;
+  const bw=bestW(ex);
+  const logs=ex.logs||[];
+  const done=new Set(logs.map(l=>l.week)).size;
+  const pct=weeks?Math.round(done/weeks*100):0;
+  const currentWeek=done+1;
+
+  const weekCards=Array.from({length:weeks},(_,i)=>{
+    const wk=i+1;
+    const log=logs.find(l=>l.week===wk);
+    const hasLog=!!log;
+    const isCurrent=!hasLog&&wk===currentWeek;
+    const isFuture=!hasLog&&wk>currentWeek;
+    const col=hasLog?'var(--g)':isCurrent?'var(--y)':'var(--tx4)';
+    const cls=hasLog?'wk-done':isCurrent?'wk-on':'';
+
+    let setsHtml='';
+    if(hasLog){
+      setsHtml=log.sets.map((s,si)=>{
+        const pl=(ex.sets||[])[si];
+        const pr=parseFloat(s.weight)>=(parseFloat(pl?.weight)||0)&&s.weight;
+        return`<span class="set-pill ${pr?'pr':''}">
+          <span style="font-size:10px;color:var(--tx3)">${si+1}.</span>
+          <input type="number" value="${s.weight}" data-f="lw" data-wk="${wk}" data-si="${si}" placeholder="kg"/>
+          <span style="font-size:10px;color:var(--tx3)">kg×</span>
+          <input type="number" value="${s.reps}" data-f="lr" data-wk="${wk}" data-si="${si}" placeholder="rip" style="width:32px"/>
+        </span>`;
+      }).join('');
+    } else if(isCurrent){
+      setsHtml=`<div style="font-size:11px;color:var(--y);margin-bottom:6px;font-weight:600">Inserisci i kg di oggi:</div>`
+      +(ex.sets||[]).map((s,si)=>`<span class="set-pill" style="border-color:rgba(245,200,66,.3)">
+        <span style="font-size:10px;color:var(--tx3)">${si+1}.</span>
+        <input type="number" data-f="nw" data-si="${si}" placeholder="${s.weight||'kg'}"/>
+        <span style="font-size:10px;color:var(--tx3)">kg×</span>
+        <input type="number" data-f="nr" data-si="${si}" placeholder="${s.reps||'rip'}" style="width:32px"/>
+      </span>`).join('');
+    } else {
+      setsHtml=(ex.sets||[]).map((s,si)=>`<span class="set-pill" style="opacity:.35">
+        <span style="font-size:11px;color:var(--tx3)">${si+1}. ${s.weight||'?'}kg×${s.reps||'?'}</span>
+      </span>`).join('');
+    }
+
+    return`<div class="wk-card ${cls}">
+      <div class="rsb mb8">
+        <div class="row"><span style="font-size:11px;font-weight:800;color:${col}">SETTIMANA ${wk}</span>
+          ${hasLog?`<span style="font-size:10px;color:var(--tx3)">${fmtDate(log.date)}</span>`:''}
+          ${isCurrent?`<span style="font-size:10px;color:var(--y)">← oggi</span>`:''}
+        </div>
+        ${hasLog?`<button class="btn-del" data-a="del-log" data-wk="${wk}" style="font-size:12px">🗑️</button>`:''}
+        ${isCurrent?`<button class="btn-mini" data-a="save-log" data-wk="${wk}">✓ Salva</button>`:''}
+      </div>
+      <div style="display:flex;flex-wrap:wrap">${setsHtml}</div>
+    </div>`;
+  }).join('');
+
+  return`
+  <div class="topbar">
+    <button class="btn-back" data-a="back-log">←</button>
+    <div class="f1" style="margin:0 8px">
+      <div class="logo" style="font-size:16px">${esc(defName)}</div>
+      <div class="sub">${esc(m.label)} · ${done}/${weeks} sett. ${bw?`· Max: ${bw}kg`:''}</div>
+    </div>
+    <button class="btn-sm" data-a="save-log-back">Salva</button>
+  </div>
+  <div class="scroll pad">
+    <div class="card mb8">
+      <div class="rsb mb8"><span class="lbl" style="margin:0">PROGRESSIONE ${m.label}</span>
+        <span style="font-size:12px;color:var(--y);font-weight:700">${pct}%</span></div>
+      <div class="prog-bar" style="height:5px"><div class="prog-fill" style="width:${pct}%;background:var(--y)"></div></div>
+      ${bw?`<div style="font-size:11px;color:var(--tx3);margin-top:8px">🏆 Record: <b style="color:var(--y)">${bw} kg</b></div>`:''}
+    </div>
+    <div class="sec">Storico settimane — ${esc(m.label)}</div>
+    ${weekCards}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PROGRESS VIEW — grafici
+// ═══════════════════════════════════════════════════════════════
+function renderProgress(){
+  // Collect all exercises with logs across all months
+  const exMap={};
+  S.months.forEach(m=>{
+    m.days.forEach(d=>{
+      d.blocks.forEach(b=>{
+        const entries=b.type==='single'?[b.exercise]:(b.exercises||[]);
+        entries.forEach(ex=>{
+          if(!ex||!ex.defId||(ex.logs||[]).length===0) return;
+          if(!exMap[ex.defId]) exMap[ex.defId]={defId:ex.defId,monthData:[]};
+          // max weight per month
+          const maxW=bestW(ex);
+          if(maxW>0) exMap[ex.defId].monthData.push({monthKey:m.key,label:m.label,maxW,week:null});
+        });
+      });
+    });
+  });
+
+  const entries=Object.values(exMap).filter(e=>e.monthData.length>0);
+  const defsSel=S.defs.filter(d=>entries.find(e=>e.defId===d.id));
+
+  return`
+  <div class="topbar">
+    <div><div class="logo">PROGRESSI</div><div class="sub">Grafico kg nel tempo</div></div>
+  </div>
+  <div class="scroll pad">
+    ${defsSel.length===0?`<div class="empty"><div class="ei">📈</div><div>Nessun dato ancora.<br>Registra qualche allenamento!</div></div>`
+    :defsSel.map(def=>{
+      const data=exMap[def.id];
+      // sort by month
+      const sorted=[...data.monthData].sort((a,b)=>a.monthKey.localeCompare(b.monthKey));
+      return`<div class="chart-wrap">
+        <div style="font-size:13px;font-weight:700;color:var(--tx);margin-bottom:4px">${esc(def.name)}</div>
+        <div style="font-size:11px;color:var(--tx3);margin-bottom:10px">${def.muscle} · Max: <b style="color:var(--y)">${Math.max(...sorted.map(s=>s.maxW))}kg</b></div>
+        <canvas id="chart-${def.id}" height="140" data-points='${JSON.stringify(sorted)}'></canvas>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function drawCharts(){
+  document.querySelectorAll('canvas[data-points]').forEach(canvas=>{
+    const pts=JSON.parse(canvas.dataset.points||'[]');
+    if(!pts.length) return;
+    const W=canvas.offsetWidth||320; const H=140;
+    canvas.width=W; canvas.height=H;
+    const ctx=canvas.getContext('2d');
+    const pad={t:10,r:10,b:32,l:36};
+    const vals=pts.map(p=>p.maxW);
+    const minV=Math.max(0,Math.min(...vals)-5);
+    const maxV=Math.max(...vals)+5;
+    const xs=pts.map((_,i)=>pad.l+(i/(Math.max(pts.length-1,1)))*(W-pad.l-pad.r));
+    const ys=pts.map(p=>H-pad.b-((p.maxW-minV)/(maxV-minV||1))*(H-pad.t-pad.b));
+
+    // grid
+    ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=1;
+    for(let i=0;i<4;i++){
+      const y=pad.t+i*(H-pad.t-pad.b)/3;
+      ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
+      ctx.fillStyle='#555';ctx.font='9px Barlow,sans-serif';ctx.textAlign='right';
+      ctx.fillText(Math.round(maxV-i*(maxV-minV)/3)+'kg',pad.l-4,y+3);
+    }
+
+    // area fill
+    const grad=ctx.createLinearGradient(0,pad.t,0,H-pad.b);
+    grad.addColorStop(0,'rgba(245,200,66,.25)');
+    grad.addColorStop(1,'rgba(245,200,66,.01)');
+    ctx.fillStyle=grad;
+    ctx.beginPath();ctx.moveTo(xs[0],H-pad.b);
+    xs.forEach((x,i)=>ctx.lineTo(x,ys[i]));
+    ctx.lineTo(xs[xs.length-1],H-pad.b);ctx.closePath();ctx.fill();
+
+    // line
+    ctx.strokeStyle='#F5C842';ctx.lineWidth=2.5;ctx.lineJoin='round';
+    ctx.beginPath();xs.forEach((x,i)=>i===0?ctx.moveTo(x,ys[i]):ctx.lineTo(x,ys[i]));ctx.stroke();
+
+    // dots + labels
+    xs.forEach((x,i)=>{
+      ctx.fillStyle='#F5C842';ctx.beginPath();ctx.arc(x,ys[i],4,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,ys[i],2,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#F5C842';ctx.font='bold 10px Barlow,sans-serif';ctx.textAlign='center';
+      ctx.fillText(vals[i]+'kg',x,ys[i]-8);
+      // x label (month short)
+      ctx.fillStyle='#666';ctx.font='9px Barlow,sans-serif';
+      const lbl=pts[i].label.split(' ')[0].slice(0,3);
+      ctx.fillText(lbl,x,H-4);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LIBRARY
+// ═══════════════════════════════════════════════════════════════
+function renderLibrary(){
+  const groups=['Tutti',...MUSCLES];
+  const filt=S.libFilter==='Tutti'?S.defs:S.defs.filter(d=>d.muscle===S.libFilter);
+  return`
+  <div class="topbar">
+    <div><div class="logo">ESERCIZI</div><div class="sub">${S.defs.length} salvati</div></div>
+    <button class="btn-icon" data-a="new-def">＋</button>
+  </div>
+  <div class="chips">${groups.map(g=>`<button class="chip ${S.libFilter===g?'on':''}" data-a="lib-f" data-v="${g}">${g}</button>`).join('')}</div>
+  <div class="scroll pad" style="padding-top:4px">
+    ${filt.length===0?`<div class="empty"><div class="ei">📋</div><div>Nessun esercizio.<br>Aggiungine uno!</div></div>`
+    :filt.map(d=>`<div class="card">
+      <div class="rsb">
+        <div class="f1">
+          <div style="font-size:14px;font-weight:700;color:var(--tx)">${esc(d.name)}</div>
+          <span class="tag" style="color:var(--y);background:var(--y3)">${d.muscle}</span>
+          ${d.notes?`<div style="font-size:11px;color:var(--tx3);margin-top:3px">${esc(d.notes)}</div>`:''}
+        </div>
+        <div class="row" style="gap:4px;margin-left:8px">
+          <button class="btn-edit" data-a="edit-def" data-id="${d.id}">✏️</button>
+          <button class="btn-del" data-a="del-def" data-id="${d.id}">🗑️</button>
+        </div>
+      </div>
+    </div>`).join('')}
+  </div>`;
+}
+
+function renderAddDef(){
+  const d=S.editingDef;
+  return`
+  <div class="topbar">
+    <button class="btn-back" data-a="cancel-def">←</button>
+    <div class="logo" style="font-size:18px">ESERCIZIO</div>
+    <div style="width:36px"></div>
+  </div>
+  <div class="scroll pad">
+    <div class="fg"><label class="lbl">Nome *</label>
+      <input id="dn" value="${esc(d.name)}" placeholder="es. Panca Piana"/></div>
+    <div class="fg"><label class="lbl">Gruppo muscolare</label>
+      <div class="chips" style="padding:0;flex-wrap:wrap;gap:5px;margin-bottom:6px">
+        ${MUSCLES.map(m=>`<button class="chip ${d.muscle===m?'on':''}" data-a="def-muscle" data-v="${m}">${m}</button>`).join('')}
+      </div></div>
+    <div class="fg"><label class="lbl">Note</label>
+      <textarea id="dn2" placeholder="Varianti, link video...">${esc(d.notes)}</textarea></div>
+    <button id="sdb" class="btn" style="opacity:${d.name.trim()?1:.4}" data-a="save-def">Salva Esercizio</button>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SHEETS
+// ═══════════════════════════════════════════════════════════════
+function renderSheet(){
+  if(S.sheet==='addBlock'){
+    return`<div class="overlay" data-a="close-sheet">
+      <div class="sheet" onclick="event.stopPropagation()">
+        <div class="sheet-t">Tipo di blocco</div>
+        ${BLOCK_TYPES.map(bt=>`
+          <button class="sheet-opt" data-a="add-block" data-t="${bt.t}" data-did="${S.sheetDayId}">
+            <span class="oi">${bt.emoji}</span>
+            <div><div class="ol" style="color:${BCOLOR[bt.t]||'#aaa'}">${bt.label}</div><div class="os">${bt.sub}</div></div>
+          </button>`).join('')}
+      </div>
+    </div>`;
+  }
+  if(S.sheet==='addDay'){
+    return`<div class="overlay" data-a="close-sheet">
+      <div class="sheet" onclick="event.stopPropagation()">
+        <div class="sheet-t">Nuovo giorno</div>
+        <div class="fg"><label class="lbl">Nome giorno</label><input id="newdayname" placeholder="es. Push, Gambe, Giorno A..."/></div>
+        <button class="btn" data-a="confirm-add-day">Aggiungi</button>
+        <button class="btn-ghost mt8" data-a="close-sheet">Annulla</button>
+      </div>
+    </div>`;
+  }
+  if(S.sheet==='pickMonth'){
+    const now2=new Date();
+    const options=[];
+    for(let i=-1;i<=12;i++){
+      const d=new Date(now2.getFullYear(),now2.getMonth()+i,1);
+      const y=d.getFullYear(),mo=d.getMonth();
+      const k=monthKey(y,mo);
+      const exists=S.months.find(m=>m.key===k);
+      options.push({y,mo,k,label:monthLabel(y,mo),exists});
+    }
+    return`<div class="overlay" data-a="close-sheet">
+      <div class="sheet" onclick="event.stopPropagation()">
+        <div class="sheet-t">Seleziona mese</div>
+        ${options.map(o=>`
+          <button class="sheet-opt ${o.exists?'on':''}" data-a="pick-month" data-y="${o.y}" data-mo="${o.mo}">
+            <span class="oi">📅</span>
+            <div><div class="ol">${o.label}</div>${o.exists?'<div class="os" style="color:var(--y)">Scheda esistente — verrà aperta</div>':'<div class="os">Crea nuova scheda</div>'}</div>
+          </button>`).join('')}
+      </div>
+    </div>`;
+  }
+  return'';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EVENTS
+// ═══════════════════════════════════════════════════════════════
+function bindAll(){
+  document.addEventListener('input',onInput,{passive:true});
+  document.addEventListener('change',onInput,{passive:true});
+  document.querySelectorAll('[data-a]').forEach(el=>{
+    el.addEventListener('click',e=>{
+      if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
+      e.stopPropagation();
+      handle(el.dataset.a,el.dataset,el);
+    });
+  });
+}
+
+function onInput(e){
+  const el=e.target,f=el.dataset.f;
+  if(!f) return;
+  if(el.id==='dn') { S.editingDef={...S.editingDef,name:el.value}; const b=document.getElementById('sdb'); if(b)b.style.opacity=el.value.trim()?'1':'.4'; return; }
+  if(el.id==='newdayname') return; // handled on confirm
+  if(el.dataset.did&&el.id==='dayname') { mutDay(el.dataset.did,d=>{d.name=el.value;}); return; }
+
+  // block fields
+  const bid=el.dataset.bid;
+  if(bid){
+    if(f==='brest') mutBlock(bid,b=>{b.rest=el.value;});
+    if(f==='bnote') mutBlock(bid,b=>{b.note=el.value;});
+    if(f==='emom-dur') mutBlock(bid,b=>{b.duration=el.value;});
+    if(f==='emom-int') mutBlock(bid,b=>{b.interval=el.value;});
+    if(f==='amrap-dur') mutBlock(bid,b=>{b.duration=el.value;});
+    if(f==='circ-rounds') mutBlock(bid,b=>{b.rounds=el.value;});
+    if(f==='circ-rest') mutBlock(bid,b=>{b.rest=el.value;});
+    if(f==='emom-text'||f==='emom-reps'){
+      const ei=parseInt(el.dataset.ei);
+      mutBlock(bid,b=>{b.exercises[ei][f==='emom-text'?'text':'reps']=el.value;});
+    }
+    if(f==='amrap-text'||f==='amrap-reps'){
+      const ei=parseInt(el.dataset.ei);
+      mutBlock(bid,b=>{b.exercises[ei][f==='amrap-text'?'text':'reps']=el.value;});
+    }
+    return;
+  }
+
+  // entry / set fields via prefix
+  const p=el.dataset.p;
+  if(p) { mutEntryByPrefix(p,f,el); return; }
+
+  // log fields
+  if(f==='lw'||f==='lr'){
+    const wk=parseInt(el.dataset.wk),si=parseInt(el.dataset.si);
+    mutActiveEx(ex=>{
+      const log=ex.logs.find(l=>l.week===wk);
+      if(log&&log.sets[si]) log.sets[si][f==='lw'?'weight':'reps']=el.value;
+    });
+  }
+}
+
+function handle(a,ds){
+  switch(a){
+    case'nav': ss({view:ds.v}); break;
+    case'lib-f': ss({libFilter:ds.v}); break;
+    case'new-def': ss({editingDef:newDef(),view:'addDef'}); break;
+    case'edit-def': ss({editingDef:clone(S.defs.find(x=>x.id===ds.id)),view:'addDef'}); break;
+    case'del-def': if(confirm('Eliminare?')) ss({defs:S.defs.filter(d=>d.id!==ds.id)}); break;
+    case'cancel-def': ss({view:'library'}); break;
+    case'def-muscle': ss({editingDef:{...S.editingDef,muscle:ds.v}}); break;
+    case'save-def': {
+      const nm=document.getElementById('dn')?.value||'';
+      if(!nm.trim()) return;
+      const d={...S.editingDef,name:nm,notes:document.getElementById('dn2')?.value||''};
+      const exists=S.defs.find(x=>x.id===d.id);
+      ss({defs:exists?S.defs.map(x=>x.id===d.id?d:x):[...S.defs,d],view:'library'});
+      break;
+    }
+
+    case'new-month': ss({sheet:'pickMonth'}); break;
+    case'pick-month': {
+      const y=parseInt(ds.y),mo=parseInt(ds.mo);
+      const k=monthKey(y,mo);
+      const ex=S.months.find(m=>m.key===k);
+      const m=ex?clone(ex):newMonthPlan(y,mo);
+      ss({activeMonth:m,activeDayId:m.days[0]?.id||null,expandedBlock:null,sheet:null,view:'month'});
+      break;
+    }
+    case'open-month': {
+      const m=clone(S.months.find(x=>x.id===ds.id));
+      ss({activeMonth:m,activeDayId:m.days[0]?.id||null,expandedBlock:null,view:'month'});
+      break;
+    }
+    case'edit-month': {
+      const m=clone(S.months.find(x=>x.id===ds.id));
+      ss({activeMonth:m,activeDayId:m.days[0]?.id||null,expandedBlock:null,view:'month'});
+      break;
+    }
+    case'del-month': if(confirm('Eliminare questa scheda mensile?')) ss({months:S.months.filter(m=>m.id!==ds.id)}); break;
+    case'back-month': ss({view:'home',activeMonth:null}); break;
+    case'save-month': {
+      const m=S.activeMonth;
+      const exists=S.months.find(x=>x.id===m.id);
+      const months=exists?S.months.map(x=>x.id===m.id?m:x):[m,...S.months];
+      save('gn_months',months);
+      ss({months,view:'home',activeMonth:null});
+      break;
+    }
+
+    case'sel-day': ss({activeDayId:ds.did,expandedBlock:null}); break;
+    case'add-day': ss({sheet:'addDay'}); break;
+    case'confirm-add-day': {
+      const name=document.getElementById('newdayname')?.value||'Nuovo giorno';
+      const d=newDay(name);
+      mutMonth(m=>{m.days.push(d);});
+      ss({activeDayId:d.id,sheet:null});
+      break;
+    }
+    case'del-day': {
+      if(!confirm('Eliminare questo giorno?')) return;
+      mutMonth(m=>{m.days=m.days.filter(d=>d.id!==ds.did);});
+      ss({activeDayId:S.activeMonth.days[0]?.id||null});
+      break;
+    }
+
+    case'open-add-block': ss({sheet:'addBlock',sheetDayId:ds.did}); break;
+    case'close-sheet': ss({sheet:null}); break;
+    case'add-block': {
+      const b=newBlock(ds.t);
+      mutDay(ds.did,d=>{d.blocks.push(b);});
+      ss({expandedBlock:b.id,sheet:null});
+      break;
+    }
+    case'del-block': {
+      mutDay(ds.did,d=>{d.blocks=d.blocks.filter(b=>b.id!==ds.bid);});
+      ss({});
+      break;
+    }
+    case'toggle-block': ss({expandedBlock:S.expandedBlock===ds.bid?null:ds.bid}); break;
+
+    case'add-set': mutEntryByPrefix(ds.p,'add-set',null); break;
+    case'del-set': mutEntryByPrefix(ds.p,'del-set',null,ds.sid); break;
+    case'add-emom-ex': mutBlock(ds.bid,b=>{b.exercises.push({id:uid(),text:'',reps:''});}); break;
+    case'del-emom-ex': mutBlock(ds.bid,b=>{b.exercises.splice(parseInt(ds.ei),1);}); break;
+    case'add-amrap-ex': mutBlock(ds.bid,b=>{b.exercises.push({id:uid(),text:'',reps:''});}); break;
+    case'del-amrap-ex': mutBlock(ds.bid,b=>{b.exercises.splice(parseInt(ds.ei),1);}); break;
+    case'add-circ-ex': mutBlock(ds.bid,b=>{b.exercises.push(newExEntry());}); break;
+    case'del-circ-ex': mutBlock(ds.bid,b=>{b.exercises.splice(parseInt(ds.ei),1);}); break;
+
+    case'go-log': ss({activeBlockId:ds.bid,activeDayId:ds.did,view:'blockLog'}); break;
+    case'back-log': ss({view:'month'}); break;
+    case'save-log-back': {
+      // save activeMonth to months
+      const m=S.activeMonth;
+      const exists=S.months.find(x=>x.id===m.id);
+      const months=exists?S.months.map(x=>x.id===m.id?m:x):[m,...S.months];
+      save('gn_months',months);
+      ss({months,view:'month'});
+      break;
+    }
+    case'save-log': {
+      const wk=parseInt(ds.wk);
+      const nwInputs=[...document.querySelectorAll('[data-f="nw"]')];
+      const nrInputs=[...document.querySelectorAll('[data-f="nr"]')];
+      const sets=nwInputs.map((wi,i)=>({weight:wi.value||'0',reps:nrInputs[i]?.value||'0'}));
+      mutActiveEx(ex=>{
+        ex.logs=(ex.logs||[]).filter(l=>l.week!==wk);
+        ex.logs.push({id:uid(),week:wk,date:new Date().toISOString(),sets});
+        ex.logs.sort((a,b)=>a.week-b.week);
+      });
+      // persist
+      const m=S.activeMonth;
+      const exists=S.months.find(x=>x.id===m.id);
+      const months=exists?S.months.map(x=>x.id===m.id?m:x):[m,...S.months];
+      save('gn_months',months);
+      ss({months});
+      break;
+    }
+    case'del-log': {
+      const wk=parseInt(ds.wk);
+      mutActiveEx(ex=>{ex.logs=(ex.logs||[]).filter(l=>l.week!==wk);});
+      const m=S.activeMonth;
+      const months=S.months.map(x=>x.id===m.id?m:x);
+      save('gn_months',months);
+      ss({months});
+      break;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MUTATORS
+// ═══════════════════════════════════════════════════════════════
+function mutMonth(fn){
+  const m=clone(S.activeMonth);fn(m);ss({activeMonth:m});
+}
+function mutDay(did,fn){
+  mutMonth(m=>{const d=m.days.find(x=>x.id===did);if(d)fn(d);});
+}
+function mutBlock(bid,fn){
+  mutMonth(m=>{
+    m.days.forEach(d=>{const b=d.blocks.find(x=>x.id===bid);if(b)fn(b);});
+  });
+}
+function mutEntryByPrefix(prefix,f,el,extraSid){
+  // prefix: sx-BID | mx-BID-EI | cx-BID-EI
+  const parts=prefix.split('-');
+  const ptype=parts[0]; // sx|mx|cx
+  const bid=parts[1];
+  const ei=parts[2]!==undefined?parseInt(parts[2]):-1;
+
+  mutBlock(bid,b=>{
+    let entry;
+    if(ptype==='sx') entry=b.exercise;
+    else if(ptype==='mx') entry=b.exercises[ei];
+    else if(ptype==='cx') entry=b.exercises[ei];
+    if(!entry) return;
+
+    if(f==='add-set'){entry.sets.push(newSetPlan());return;}
+    if(f==='del-set'){entry.sets=entry.sets.filter(s=>s.id!==extraSid);return;}
+    if(f==='edef'){entry.defId=el.value||null;return;}
+    if(f==='sw'||f==='sr'||f==='srest'){
+      entry.sets=entry.sets.map(s=>{
+        if(s.id!==el.dataset.sid)return s;
+        return{...s,[f==='sw'?'weight':f==='sr'?'reps':'rest']:el.value};
+      });
+    }
+  });
+}
+function mutActiveEx(fn){
+  const did=S.activeDayId,bid=S.activeBlockId;
+  mutMonth(m=>{
+    const d=m.days.find(x=>x.id===did);
+    if(!d)return;
+    const b=d.blocks.find(x=>x.id===bid);
+    if(!b||b.type!=='single')return;
+    fn(b.exercise);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════
+render();
+</script>
+
+<!-- PWA manifest -->
+<script>
+const _m={name:'GymNotes',short_name:'GymNotes',start_url:'.',display:'standalone',background_color:'#0a0a0a',theme_color:'#0a0a0a',icons:[{src:"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='36' fill='%230a0a0a'/%3E%3Ctext x='96' y='130' text-anchor='middle' font-size='110'%3E🏋️%3C/text%3E%3C/svg%3E",sizes:'192x192',type:'image/svg+xml'}]};
+const _b=new Blob([JSON.stringify(_m)],{type:'application/json'});
+const _l=document.createElement('link');_l.rel='manifest';_l.href=URL.createObjectURL(_b);document.head.appendChild(_l);
+</script>
+</body>
+</html>
