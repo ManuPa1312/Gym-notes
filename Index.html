@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="#0a0a0a"/>
+<title>GymNotes</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#0a0a0a;--bg2:#111;--bg3:#1a1a1a;--bg4:#222;--bg5:#2a2a2a;
+  --b1:#2e2e2e;--b2:#383838;
+  --tx:#fff;--tx2:#ccc;--tx3:#888;--tx4:#555;--tx5:#3a3a3a;
+  --y:#F5C842;--y2:rgba(245,200,66,.15);--y3:rgba(245,200,66,.08);
+  --o:#e08c2a;--g:#4ade80;--r:#f87171;--b:#60a5fa;--p:#c084fc;--t:#2dd4bf;
+  --sb:env(safe-area-inset-bottom,0px);
+  --fd:'Barlow Condensed',sans-serif;--fb:'Barlow',sans-serif;
+}
+html,body{height:100%;background:#000;color:var(--tx);font-family:var(--fb);overflow:hidden;}
+#root{height:100%;max-width:480px;margin:0 auto;display:flex;flex-direction:column;background:var(--bg2);position:relative;}
+
+/* ── SCROLL ── */
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.scroll::-webkit-scrollbar{display:none;}
+.pad{padding:12px 14px calc(24px + var(--sb));}
+
+/* ── HEADER ── */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 14px 10px;flex-shrink:0;border-bottom:1px solid var(--b1);background:var(--bg2);}
+.logo{font-family:var(--fd);font-size:24px;font-weight:900;letter-spacing:2px;color:var(--tx);}
+.logo b{color:var(--y);}
+.sub{font-size:11px;color:var(--tx3);margin-top:1px;}
+
+/* ── NAVBAR ── */
+.nav{display:flex;height:calc(58px + var(--sb));background:var(--bg);border-top:1px solid var(--b1);padding-bottom:var(--sb);flex-shrink:0;}
+.nb{flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-family:var(--fb);}
+.nb .ni{font-size:19px;}
+.nb .nl{font-size:9px;font-weight:700;letter-spacing:.5px;color:var(--tx4);}
+.nb.on .nl{color:var(--y);}
+
+/* ── BUTTONS ── */
+.btn{background:var(--y);color:#111;border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;width:100%;font-family:var(--fb);letter-spacing:.3px;}
+.btn-sm{background:var(--y);border:none;border-radius:9px;padding:7px 15px;font-weight:800;font-size:12px;cursor:pointer;color:#111;font-family:var(--fb);}
+.btn-ghost{background:transparent;border:1px solid var(--b2);border-radius:10px;padding:10px;color:var(--tx3);font-size:13px;cursor:pointer;font-family:var(--fb);width:100%;text-align:center;}
+.btn-back{background:transparent;border:none;color:var(--y);font-size:26px;cursor:pointer;padding:0 2px;line-height:1;}
+.btn-icon{background:var(--bg3);border:1px solid var(--b1);border-radius:9px;padding:7px;color:var(--tx2);cursor:pointer;display:flex;align-items:center;line-height:0;}
+.btn-del{background:transparent;border:none;color:var(--r);cursor:pointer;padding:5px;font-size:15px;}
+.btn-edit{background:transparent;border:none;color:var(--tx4);cursor:pointer;padding:5px;font-size:14px;}
+.btn-add{border:2px dashed var(--b1);border-radius:11px;padding:12px;color:var(--tx4);font-size:13px;cursor:pointer;background:transparent;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;font-family:var(--fb);}
+.btn-mini{background:var(--y3);border:1px solid rgba(245,200,66,.25);border-radius:6px;padding:5px 9px;color:var(--y);font-size:11px;cursor:pointer;font-family:var(--fb);font-weight:700;display:inline-flex;align-items:center;gap:3px;}
+
+/* ── CARD ── */
+.card{background:var(--bg3);border-radius:13px;padding:13px;margin-bottom:9px;border:1px solid var(--b1);}
+.card-t{font-size:15px;font-weight:700;color:var(--tx);margin-bottom:2px;}
+.card-d{font-size:11px;color:var(--tx3);margin-bottom:6px;}
+
+/* ── CHIPS ── */
+.chips{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding:8px 14px;}
+.chips::-webkit-scrollbar{display:none;}
+.chip{background:var(--bg3);border:1px solid var(--b1);border-radius:20px;padding:5px 11px;font-size:11px;color:var(--tx3);cursor:pointer;white-space:nowrap;font-family:var(--fb);font-weight:600;flex-shrink:0;}
+.chip.on{background:var(--y2);border-color:var(--y);color:var(--y);}
+
+/* ── BADGE ── */
+.badge{font-size:10px;background:var(--bg4);border-radius:5px;padding:2px 7px;border:1px solid var(--b1);color:var(--tx2);display:inline-block;}
+.tag{display:inline-block;font-size:10px;border-radius:5px;padding:2px 7px;font-weight:700;}
+
+/* ── FORM ── */
+.fg{margin-bottom:11px;}
+.lbl{display:block;font-size:10px;color:var(--tx3);margin-bottom:4px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;}
+input,select,textarea{width:100%;background:var(--bg3);border:1px solid var(--b1);border-radius:9px;padding:10px 11px;color:var(--tx);font-size:14px;outline:none;font-family:var(--fb);-webkit-appearance:none;}
+input:focus,select:focus,textarea:focus{border-color:rgba(245,200,66,.5);}
+input::placeholder,textarea::placeholder{color:var(--tx5);}
+textarea{resize:none;height:64px;}
+
+/* ── DAY TAB ── */
+.daytabs{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding:0 14px 8px;flex-shrink:0;}
+.daytabs::-webkit-scrollbar{display:none;}
+.dtab{background:var(--bg3);border:1px solid var(--b1);border-radius:10px;padding:7px 13px;font-size:12px;font-weight:700;color:var(--tx3);cursor:pointer;white-space:nowrap;flex-shrink:0;font-family:var(--fd);letter-spacing:.5px;}
+.dtab.on{background:var(--y2);border-color:var(--y);color:var(--y);}
+.dtab-add{background:transparent;border:1px dashed var(--b2);border-radius:10px;padding:7px 11px;font-size:18px;color:var(--tx4);cursor:pointer;flex-shrink:0;}
+
+/* ── BLOCK CARD ── */
+.bcard{border-radius:12px;margin-bottom:8px;border:1px solid var(--b1);overflow:hidden;background:var(--bg3);}
+.bcard-hdr{display:flex;align-items:center;gap:8px;padding:11px 12px;cursor:pointer;user-select:none;}
+.bnum{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#111;flex-shrink:0;font-family:var(--fd);}
+.btype-tag{font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 6px;border-radius:4px;}
+.bname{font-size:13px;font-weight:600;color:var(--tx2);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bsub{font-size:10px;color:var(--tx3);margin-top:1px;}
+.bcard-body{padding:12px;border-top:1px solid var(--b1);}
+
+/* ── PROGRESS PILL ── */
+.prog-bar{height:3px;background:var(--b1);border-radius:2px;overflow:hidden;margin-top:6px;}
+.prog-fill{height:100%;border-radius:2px;transition:width .4s;}
+
+/* ── SETS TABLE ── */
+.stbl{width:100%;border-collapse:collapse;}
+.stbl th{font-size:9px;color:var(--tx4);font-weight:700;letter-spacing:.5px;padding:3px 3px 6px;text-align:center;}
+.stbl td{padding:3px;}
+.stbl td input{background:var(--bg4);border:1px solid var(--b1);border-radius:6px;padding:6px 3px;font-size:12px;text-align:center;color:var(--tx);width:100%;}
+.stbl .sn{text-align:center;font-size:11px;color:var(--y);font-weight:700;width:22px;}
+
+/* ── LOG WEEK ── */
+.wk-card{border:1px solid var(--b1);border-radius:10px;padding:11px;margin-bottom:7px;}
+.wk-on{border-color:rgba(245,200,66,.3);background:rgba(245,200,66,.04);}
+.wk-done{border-color:rgba(74,222,128,.25);background:rgba(74,222,128,.04);}
+.set-pill{display:inline-flex;align-items:center;gap:4px;background:var(--bg4);border:1px solid var(--b1);border-radius:7px;padding:5px 8px;margin:3px;font-size:12px;}
+.set-pill input{background:transparent;border:none;padding:0;font-size:12px;color:var(--tx);width:40px;text-align:center;font-family:var(--fb);}
+.set-pill.pr{border-color:rgba(245,200,66,.4);}
+
+/* ── CHART ── */
+.chart-wrap{background:var(--bg3);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--b1);}
+canvas{display:block;width:100% !important;}
+
+/* ── MODAL / SHEET ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:flex-end;}
+.sheet{background:var(--bg2);border-radius:20px 20px 0 0;width:100%;max-height:82vh;overflow-y:auto;padding:18px 14px calc(20px + var(--sb));}
+.sheet-t{font-family:var(--fd);font-size:19px;font-weight:900;letter-spacing:1px;margin-bottom:14px;}
+.sheet-opt{display:flex;align-items:center;gap:12px;background:var(--bg3);border-radius:12px;padding:13px;margin-bottom:8px;border:1px solid var(--b1);cursor:pointer;width:100%;text-align:left;}
+.sheet-opt:active{background:var(--bg4);}
+.sheet-opt .oi{font-size:24px;}
+.sheet-opt .ol{font-size:14px;font-weight:700;}
+.sheet-opt .os{font-size:11px;color:var(--tx3);margin-top:1px;}
+
+/* ── MONTH SELECTOR ── */
+.month-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--b1);background:var(--bg2);}
+.month-lbl{font-family:var(--fd);font-size:17px;font-weight:700;color:var(--y);letter-spacing:1px;}
+.month-nav{background:var(--bg3);border:1px solid var(--b1);border-radius:8px;padding:6px 12px;color:var(--tx2);cursor:pointer;font-size:14px;}
+
+/* ── EMOM / AMRAP ── */
+.emom-box{background:var(--bg4);border-radius:9px;padding:10px;margin-bottom:8px;}
+.emom-row{display:flex;gap:8px;margin-bottom:6px;}
+.emom-row input{flex:1;}
+
+/* ── MISC ── */
+.row{display:flex;align-items:center;gap:8px;}
+.rsb{display:flex;align-items:center;justify-content:space-between;}
+.f1{flex:1;}
+.mt8{margin-top:8px;}
+.mb8{margin-bottom:8px;}
+.mb12{margin-bottom:12px;}
+.sec{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--tx3);margin:14px 0 7px;text-transform:uppercase;}
+.divider{height:1px;background:var(--b1);margin:10px 0;}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 20px;text-align:center;color:var(--tx4);line-height:1.7;}
+.empty .ei{font-size:40px;margin-bottom:10px;}
+@keyframes fu{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.fa{animation:fu .16s ease;}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet{animation:su .2s ease;}
+
+/* BLOCK TYPE COLORS */
+.tc-single{color:#aaa;} .bg-single{background:#555;}
+.tc-superset{color:var(--y);} .bg-superset{background:var(--y);}
+.tc-triset{color:var(--o);} .bg-triset{background:var(--o);}
+.tc-emom{color:var(--b);} .bg-emom{background:var(--b);}
+.tc-amrap{color:var(--p);} .bg-amrap{background:var(--p);}
+.tc-circuit{color:var(--t);} .bg-circuit{background:var(--t);}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+// ═══════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════
+const uid=()=>Math.random().toString(36).slice(2,9);
+const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const clone=v=>JSON.parse(JSON.stringify(v));
+const fmtDate=iso=>new Date(iso).toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'});
+const monthKey=(y,m)=>`${y}-${String(m+1).padStart(2,'0')}`;
+const monthLabel=(y,m)=>new Date(y,m,1).toLocaleDateString('it-IT',{month:'long',year:'numeric'}).replace(/^\w/,c=>c.toUpperCase());
+const MUSCLES=['Petto','Schiena','Spalle','Bicipiti','Tricipiti','Gambe','Glutei','Addome','Full Body','Cardio'];
+const BLOCK_TYPES=[
+  {t:'single',  label:'Esercizio',  emoji:'💪', sub:'Un esercizio con serie'},
+  {t:'superset',label:'Super Set',  emoji:'⚡', sub:'2 esercizi in sequenza'},
+  {t:'triset',  label:'Tri Set',    emoji:'🔥', sub:'3 esercizi in sequenza'},
+  {t:'emom',    label:'EMOM',       emoji:'⏱️', sub:'Every Minute On the Minute'},
+  {t:'amrap',   label:'AMRAP',      emoji:'🔄', sub:'As Many Rounds As Possible'},
+  {t:'circuit', label:'Circuito',   emoji:'🔁', sub:'Serie di esercizi a rotazione'},
+];
+
+const load=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}};
+const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}};
+
+// ═══════════════════════════════════════════════════════════════
+// DATA FACTORIES
+// ═══════════════════════════════════════════════════════════════
+const newSetPlan=()=>({id:uid(),weight:'',reps:'',rest:'60'});
+const newExEntry=(defId=null)=>({id:uid(),defId,sets:[newSetPlan()],logs:[]});
+
+const newBlock=(type)=>{
+  const b={id:uid(),type,note:''};
+  if(type==='single')   b.exercise=newExEntry();
+  if(type==='superset') b.exercises=[newExEntry(),newExEntry()];
+  if(type==='triset')   b.exercises=[newExEntry(),newExEntry(),newExEntry()];
+  if(type==='emom')     {b.duration=20;b.interval=1;b.exercises=[{id:uid(),text:'',reps:''}];}
+  if(type==='amrap')    {b.duration=10;b.exercises=[{id:uid(),text:'',reps:''}];}
+  if(type==='circuit')  {b.rounds=3;b.rest=30;b.exercises=[newExEntry()];}
+  return b;
+};
+
+const newDay=(name)=>({id:uid(),name:name||'Giorno',blocks:[]});
+
+// A "month plan" = { key, label, year, month, days:[], weeks:4 }
+const newMonthPlan=(year,month)=>({
+  id:uid(), key:monthKey(year,month),
+  label:monthLabel(year,month),
+  year,month,
+  days:[newDay('Giorno A'),newDay('Giorno B'),newDay('Giorno C')],
+  weeks:4,
+  createdAt:new Date().toISOString(),
+});
+
+const newDef=()=>({id:uid(),name:'',muscle:MUSCLES[0],notes:''});
+
+// Best weight for an exercise entry
+const bestW=ex=>{let b=0;(ex.logs||[]).forEach(l=>l.sets?.forEach(s=>{const w=parseFloat(s.weight)||0;if(w>b)b=w;}));return b;};
+const lastLog=ex=>(ex.logs||[]).slice(-1)[0]||null;
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+const now=new Date();
+let S={
+  view:'home',        // home|library|addDef|month|day|blockLog|progress
+  defs:load('gn_defs',[]),
+  months:load('gn_months',[]),
+  activeMonth:null,   // monthPlan object (being edited)
+  activeDayId:null,
+  activeBlockId:null,
+  activeExIdx:0,
+  editingDef:null,
+  libFilter:'Tutti',
+  sheet:null,         // null|'addBlock'|'addDay'|'pickMonth'
+  sheetDayId:null,
+  currentYear:now.getFullYear(),
+  currentMonthIdx:now.getMonth(),
+  expandedBlock:null,
+};
+
+function ss(patch){
+  Object.assign(S,typeof patch==='function'?patch(S):patch);
+  if('defs' in (typeof patch==='function'?{}:patch)) save('gn_defs',S.defs);
+  if('months' in (typeof patch==='function'?{}:patch)) save('gn_months',S.months);
+  render();
+}
+function saveMonths(){save('gn_months',S.months);}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER ROOT
+// ═══════════════════════════════════════════════════════════════
+function render(){
+  const root=document.getElementById('root');
+  const showNav=['home','library','progress'].includes(S.view);
+  root.innerHTML=`
+    ${renderView()}
+    ${showNav?renderNav():''}
+    ${S.sheet?renderSheet():''}
+  `;
+  bindAll();
+  if(S.view==='progress') drawCharts();
+}
+
+function renderNav(){
+  const tabs=[
+    {v:'home',   i:'🗓️',  l:'Mesi'},
+    {v:'progress',i:'📈', l:'Progressi'},
+    {v:'library',i:'📋',  l:'Esercizi'},
+  ];
+  return`<nav class="nav">${tabs.map(t=>`
+    <button class="nb ${S.view===t.v?'on':''}" data-a="nav" data-v="${t.v}">
+      <span class="ni">${t.i}</span><span class="nl">${t.l}</span>
+    </button>`).join('')}</nav>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HOME — lista mesi
+// ═══════════════════════════════════════════════════════════════
+function renderView(){
+  switch(S.view){
+    case'home':     return renderHome();
+    case'library':  return renderLibrary();
+    case'addDef':   return renderAddDef();
+    case'month':    return renderMonth();
+    case'day':      return renderDay();
+    case'blockLog': return renderBlockLog();
+    case'progress': return renderProgress();
+  }
+  return'';
+}
+
+function renderHome(){
+  const months=[...S.months].sort((a,b)=>b.key.localeCompare(a.key));
+  return`
+  <div class="topbar">
+    <div><div class="logo">GYM<b>NOTES</b></div><div class="sub">${S.months.length} schede mensili</div></div>
+    <button class="btn-icon" data-a="new-month">+</button>
+  </div>
+  <div class="scroll pad">
+    <button class="btn mb8" data-a="new-month">+ Nuova Scheda Mensile</button>
+    ${months.length===0?`<div class="empty"><div class="ei">📅</div><div>Nessuna scheda ancora.<br>Creane una per questo mese!</div></div>`
+    :months.map(m=>{
+      const dayCount=m.days?.length||0;
+      const exCount=m.days?.reduce((n,d)=>n+d.blocks.reduce((nb,b)=>nb+(b.type==='single'?1:(b.exercises?.length||1)),0),0)||0;
+      return`<div class="card fa" data-a="open-month" data-id="${m.id}" style="cursor:pointer">
+        <div class="rsb">
+          <div class="f1">
+            <div class="card-t">${esc(m.label)}</div>
+            <div class="card-d">${fmtDate(m.createdAt)}</div>
+            <div class="row" style="gap:5px;flex-wrap:wrap">
+              <span class="badge">${dayCount} giorni</span>
+              <span class="badge">${exCount} esercizi</span>
+              <span class="badge">${m.weeks||4} settimane</span>
+            </div>
+          </div>
+          <div class="row" style="gap:4px;margin-left:8px" onclick="event.stopPropagation()">
+            <button class="btn-edit" data-a="edit-month" data-id="${m.id}">✏️</button>
+            <button class="btn-del" data-a="del-month" data-id="${m.id}">🗑️</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MONTH VIEW — giorni
+// ═══════════════════════════════════════════════════════════════
+function renderMonth(){
+  const m=S.activeMonth;
+  if(!m) return'';
+  const activeDay=m.days.find(d=>d.id===S.activeDayId)||m.days[0];
+
+  return`
+  <div class="topbar">
+    <button class="btn-back" data-a="back-month">←</button>
+    <div class="f1 row" style="gap:8px;margin:0 8px">
+      <div>
+        <div class="logo" style="font-size:18px">${esc(m.label)}</div>
+        <div class="sub">${m.weeks} settimane · ${m.days.length} giorni</div>
+      </div>
+    </div>
+    <button class="btn-sm" data-a="save-month">Salva</button>
+  </div>
+
+  <!-- Day tabs -->
+  <div class="daytabs" style="margin-top:8px">
+    ${m.days.map(d=>`
+      <button class="dtab ${activeDay&&d.id===activeDay.id?'on':''}" data-a="sel-day" data-did="${d.id}">
+        ${esc(d.name)}
+      </button>`).join('')}
+    <button class="dtab-add" data-a="add-day">＋</button>
+  </div>
+
+  ${activeDay?renderDayContent(activeDay):'<div class="pad"><div class="empty"><div class="ei">👆</div><div>Seleziona un giorno</div></div></div>'}
+  `;
+}
+
+function renderDayContent(day){
+  return`<div class="scroll pad" style="padding-top:4px">
+    <!-- Day name edit -->
+    <div class="row mb8" style="gap:8px">
+      <input id="dayname" value="${esc(day.name)}" placeholder="Nome giorno (es. Push, Petto...)" style="flex:1" data-did="${day.id}"/>
+      <button class="btn-del" data-a="del-day" data-did="${day.id}" title="Elimina giorno">🗑️</button>
+    </div>
+    <!-- Blocks -->
+    ${day.blocks.map((b,i)=>renderBlockCard(b,i,day.id)).join('')}
+    <button class="btn-add mt8" data-a="open-add-block" data-did="${day.id}">＋ Aggiungi blocco</button>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BLOCK CARD
+// ═══════════════════════════════════════════════════════════════
+const BCOLOR={single:'#888',superset:'#F5C842',triset:'#e08c2a',emom:'#60a5fa',amrap:'#c084fc',circuit:'#2dd4bf'};
+const BLABEL={single:'',superset:'⚡ SUPER SET',triset:'🔥 TRI SET',emom:'⏱ EMOM',amrap:'🔄 AMRAP',circuit:'🔁 CIRCUITO'};
+
+function renderBlockCard(b,idx,dayId){
+  const col=BCOLOR[b.type]||'#888';
+  const lbl=BLABEL[b.type]||'';
+  const isExp=S.expandedBlock===b.id;
+
+  // Summary
